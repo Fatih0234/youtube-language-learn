@@ -2,6 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { RightColumnTabs, type RightColumnTabsHandle } from "@/components/right-column-tabs";
+import { useTextSelection } from "@/lib/hooks/use-text-selection";
+import { TranscriptSelectionPopover } from "@/components/transcript-selection-popover";
+import { FlashcardCreateModal, type FlashcardCreatePayload } from "@/components/flashcard-create-modal";
 import { YouTubePlayer } from "@/components/youtube-player";
 import { HighlightsPanel } from "@/components/highlights-panel";
 import { ThemeSelector } from "@/components/theme-selector";
@@ -1766,6 +1769,13 @@ export default function AnalyzePage() {
   const [, setIsLoadingNotes] = useState(false);
   const [editingNote, setEditingNote] = useState<EditingNote | null>(null);
 
+  // Flashcard state
+  const [flashcardModalOpen, setFlashcardModalOpen] = useState(false);
+  const [flashcardPayload, setFlashcardPayload] = useState<FlashcardCreatePayload | null>(null);
+  const [flashcardRefreshTrigger, setFlashcardRefreshTrigger] = useState(0);
+  const transcriptContainerRef = useRef<HTMLDivElement>(null);
+  const { selection: transcriptSelection, clearSelection } = useTextSelection(transcriptContainerRef);
+
   useEffect(() => {
     if (!videoId || !user) {
       setNotes([]);
@@ -1891,6 +1901,23 @@ export default function AnalyzePage() {
 
   const handleCancelEditing = useCallback(() => {
     setEditingNote(null);
+  }, []);
+
+  const handleAddFlashcard = useCallback((text: string) => {
+    setFlashcardPayload({
+      videoId: videoId ?? '',
+      selectedText: text,
+      startTimestamp: currentTime,
+      transcriptContext: undefined,
+      sourceLanguage: videoInfo?.language ?? undefined,
+    });
+    setFlashcardModalOpen(true);
+  }, [videoId, currentTime, videoInfo]);
+
+  const handleAskTutor = useCallback((text: string) => {
+    rightColumnTabsRef.current?.switchToChat?.();
+    const event = new CustomEvent('tutor-ask', { detail: { text } });
+    window.dispatchEvent(event);
   }, []);
 
   return (
@@ -2079,6 +2106,7 @@ export default function AnalyzePage() {
             {/* Right Column - Tabbed Interface (1/3 width) */}
             <div className="lg:col-span-1">
               <div
+                ref={transcriptContainerRef}
                 className="sticky top-[6.5rem]"
                 id="right-column-container"
                 style={{ height: transcriptHeight, maxHeight: transcriptHeight }}
@@ -2130,7 +2158,17 @@ export default function AnalyzePage() {
                   currentSourceLanguage={videoInfo?.language}
                   onRequestExport={handleRequestExport}
                   exportButtonState={exportButtonState}
+                  flashcardRefreshTrigger={flashcardRefreshTrigger}
+                  onFlashcardTimestampClick={(seconds) => handleTimestampClick(seconds)}
                 />
+                {transcriptSelection && (
+                  <TranscriptSelectionPopover
+                    selection={transcriptSelection}
+                    onAddFlashcard={handleAddFlashcard}
+                    onAskTutor={handleAskTutor}
+                    onClose={clearSelection}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -2184,6 +2222,12 @@ export default function AnalyzePage() {
         open={showExportUpsell}
         onOpenChange={setShowExportUpsell}
         onUpgradeClick={handleUpgradeClick}
+      />
+      <FlashcardCreateModal
+        open={flashcardModalOpen}
+        onOpenChange={setFlashcardModalOpen}
+        payload={flashcardPayload}
+        onCreated={() => setFlashcardRefreshTrigger((n) => n + 1)}
       />
     </div>
   );

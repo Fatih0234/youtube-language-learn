@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Settings, Video, LogOut, Loader2, NotebookPen } from 'lucide-react'
+import { Settings, Video, LogOut, Loader2, NotebookPen, BookOpen, FolderOpen } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { AuthModal } from '@/components/auth-modal'
@@ -134,6 +134,18 @@ export function UserMenu() {
           <Link href="/all-notes" className="cursor-pointer">
             <NotebookPen className="mr-2 h-4 w-4" />
             <span>Notes</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/my-flashcards" className="cursor-pointer">
+            <BookOpen className="mr-2 h-4 w-4" />
+            <span>Flashcards</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/bundles" className="cursor-pointer">
+            <FolderOpen className="mr-2 h-4 w-4" />
+            <span>Bundles</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>

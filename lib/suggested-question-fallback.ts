@@ -1,19 +1,19 @@
 export const PRIMARY_FALLBACKS = [
-  "What evidence backs the main claim?",
-  "How do the key steps connect?",
-  "Why does this insight matter now?",
-  "What example clarifies the takeaway?",
-  "How can I apply this idea today?"
+  "What phrases are repeated most often in this video?",
+  "Explain the key grammar structures used by the speaker.",
+  "Give me useful vocabulary from this video with examples.",
+  "What idioms or expressions does the speaker use?",
+  "How would you say the main message in simpler language?"
 ] as const;
 
 export const SUPPLEMENTAL_FALLBACKS = [
-  "Which detail should I double-check in the transcript?",
-  "Where does the speaker justify this idea?"
+  "What's the literal vs natural translation of a key phrase here?",
+  "Pick a sentence and explain its grammar step by step."
 ] as const;
 
 export const CYCLIC_FILLERS = [
-  "What detail should I revisit in the transcript?",
-  "Which statement deserves closer scrutiny?"
+  "Quiz me on vocabulary from this video.",
+  "What cultural context helps understand this content?"
 ] as const;
 
 /**

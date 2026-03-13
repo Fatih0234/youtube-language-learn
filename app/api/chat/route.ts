@@ -10,6 +10,7 @@ import { withSecurity } from '@/lib/security-middleware';
 import { generateAIResponse } from '@/lib/ai-client';
 import { chatResponseSchema } from '@/lib/schemas';
 import { getLanguageName } from '@/lib/language-utils';
+import { buildTutorSystemPrompt } from '@/lib/prompts/tutor-system-prompt';
 
 function formatTranscriptForContext(segments: TranscriptSegment[]): string {
   return segments.map(s => {
@@ -91,7 +92,7 @@ async function handler(request: NextRequest) {
       throw error;
     }
 
-    const { message, transcript, topics, chatHistory, targetLanguage } = validatedData;
+    const { message, transcript, topics, chatHistory, targetLanguage, selectedText } = validatedData;
 
     // Check rate limiting
     const supabase = await createClient();
@@ -123,7 +124,10 @@ async function handler(request: NextRequest) {
         })()
       : '';
 
-    const prompt = `<task>
+    const tutorContext = buildTutorSystemPrompt(selectedText);
+
+    const prompt = `${tutorContext}
+<task>
 <role>You are an expert AI assistant for video transcripts. Prefer the provided transcript when the user asks about the video, but answer general knowledge questions directly.</role>${languageInstruction}
 <context>
 <videoTopics>

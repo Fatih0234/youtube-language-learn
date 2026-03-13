@@ -5,8 +5,9 @@ import { TranscriptViewer } from "@/components/transcript-viewer";
 import { AIChat } from "@/components/ai-chat";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Languages, MessageSquare, PenLine } from "lucide-react";
+import { Languages, MessageSquare, PenLine, BookOpen } from "lucide-react";
 import { TranscriptSegment, Topic, Citation, Note, NoteSource, NoteMetadata, VideoInfo, TranslationRequestHandler } from "@/lib/types";
+import { FlashcardPanel } from "@/components/flashcard-panel";
 import { SelectionActionPayload } from "@/components/selection-actions";
 import { NotesPanel, EditingNote } from "@/components/notes-panel";
 import { cn } from "@/lib/utils";
@@ -57,12 +58,15 @@ interface RightColumnTabsProps {
     isLoading?: boolean;
   };
   onAddNote?: () => void;
+  flashcardRefreshTrigger?: number;
+  onFlashcardTimestampClick?: (seconds: number) => void;
 }
 
 export interface RightColumnTabsHandle {
   switchToTranscript: () => void;
   switchToChat?: () => void;
   switchToNotes: () => void;
+  switchToFlashcards?: () => void;
 }
 
 export const RightColumnTabs = forwardRef<RightColumnTabsHandle, RightColumnTabsProps>(({
@@ -94,9 +98,11 @@ export const RightColumnTabs = forwardRef<RightColumnTabsHandle, RightColumnTabs
   currentSourceLanguage,
   onRequestExport,
   exportButtonState,
-  onAddNote
+  onAddNote,
+  flashcardRefreshTrigger,
+  onFlashcardTimestampClick,
 }, ref) => {
-  const [activeTab, setActiveTab] = useState<"transcript" | "chat" | "notes">("transcript");
+  const [activeTab, setActiveTab] = useState<"transcript" | "chat" | "notes" | "flashcards">("transcript");
   const showTranslationSelector = translationSelectorEnabled;
 
   // Expose methods to parent to switch tabs
@@ -111,6 +117,9 @@ export const RightColumnTabs = forwardRef<RightColumnTabsHandle, RightColumnTabs
     },
     switchToNotes: () => {
       setActiveTab("notes");
+    },
+    switchToFlashcards: () => {
+      setActiveTab("flashcards");
     }
   }));
 
@@ -191,6 +200,20 @@ export const RightColumnTabs = forwardRef<RightColumnTabsHandle, RightColumnTabs
           <PenLine className="h-4 w-4" />
           Notes
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setActiveTab("flashcards")}
+          className={cn(
+            "flex-1 justify-center gap-2 rounded-2xl",
+            activeTab === "flashcards"
+              ? "bg-neutral-100 text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-white/50"
+          )}
+        >
+          <BookOpen className="h-4 w-4" />
+          Cards
+        </Button>
       </div>
 
       <div className="flex-1 overflow-hidden relative">
@@ -245,6 +268,15 @@ export const RightColumnTabs = forwardRef<RightColumnTabsHandle, RightColumnTabs
               onAddNote={onAddNote}
             />
           </TooltipProvider>
+        </div>
+        <div className={cn("absolute inset-0", activeTab !== "flashcards" && "hidden")}>
+          <FlashcardPanel
+            videoId={videoId}
+            isAuthenticated={isAuthenticated}
+            onRequestSignIn={onRequestSignIn}
+            refreshTrigger={flashcardRefreshTrigger}
+            onTimestampClick={onFlashcardTimestampClick}
+          />
         </div>
       </div>
     </Card>

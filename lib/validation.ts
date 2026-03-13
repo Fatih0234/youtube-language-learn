@@ -162,7 +162,8 @@ export const chatRequestSchema = z.object({
     })).optional(),
     timestamp: z.string().or(z.date()).optional()
   })).max(50).optional(),
-  targetLanguage: z.string().min(2).max(10).optional()
+  targetLanguage: z.string().min(2).max(10).optional(),
+  selectedText: z.string().max(500).optional()
 });
 
 export const toggleFavoriteRequestSchema = z.object({

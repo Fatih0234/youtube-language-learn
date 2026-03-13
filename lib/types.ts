@@ -169,3 +169,45 @@ export type TranslationRequestHandler = (
   scenario?: TranslationScenario,
   targetLanguage?: string
 ) => Promise<string>;
+
+export interface Flashcard {
+  id: string;
+  userId: string;
+  videoId: string;
+  selectedText: string;
+  normalizedText?: string | null;
+  startTimestamp?: number | null;
+  endTimestamp?: number | null;
+  transcriptContext?: string | null;
+  sourceLanguage?: string | null;
+  targetLanguage?: string | null;
+  translation?: string | null;
+  explanation?: string | null;
+  cardType: string;
+  difficulty?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FlashcardReviewEvent {
+  id: string;
+  userId: string;
+  flashcardId: string;
+  rating: 'again' | 'hard' | 'easy';
+  reviewedAt: string;
+}
+
+export interface VideoBundle {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VideoBundleItem {
+  bundleId: string;
+  videoId: string;
+  addedAt: string;
+}
