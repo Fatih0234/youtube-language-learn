@@ -151,9 +151,9 @@ export function YouTubePlayer({
                     }
                   }
 
-                  // Throttle external updates to reduce re-renders (update every 500ms instead of 100ms)
+                  // Throttle external updates to reduce re-renders (update every 100ms instead of 500ms)
                   const timeDiff = Math.abs(time - lastUpdateTime);
-                  if (timeDiff >= 0.5) {
+                  if (timeDiff >= 0.1) {
                     lastUpdateTime = time;
                     onTimeUpdate?.(time);
                   }

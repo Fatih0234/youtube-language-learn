@@ -563,6 +563,20 @@ export function TranscriptViewer({
     onTimestampClick(segment.start);
   };
 
+  function estimateWordTimings(text: string, start: number, duration: number) {
+    const tokens = text.split(/(\s+)/);
+    const words = tokens.filter(t => t.trim().length > 0);
+    const totalChars = words.reduce((s, w) => s + w.length, 0);
+    const timings: { word: string; start: number; end: number }[] = [];
+    let cursor = start;
+    for (const word of words) {
+      const dur = totalChars > 0 ? (word.length / totalChars) * duration : duration / words.length;
+      timings.push({ word, start: cursor, end: cursor + dur });
+      cursor += dur;
+    }
+    return timings;
+  }
+
   return (
     <TooltipProvider delayDuration={300}>
       <div className="h-full max-h-full flex flex-col overflow-hidden">
@@ -856,6 +870,7 @@ export function TranscriptViewer({
                       }}
                       className={cn(
                         "group relative px-2.5 py-1.5 rounded-xl transition-all duration-200 cursor-pointer hover:bg-slate-50",
+                        isCurrent && "bg-slate-100 dark:bg-slate-800",
                         translationEnabled && "space-y-1"
                       )}
                       onClick={() => handleSegmentClick(segment)}
@@ -909,6 +924,23 @@ export function TranscriptViewer({
                               </span>
                             );
                           })
+                        ) : isCurrent ? (
+                          (() => {
+                            const wordTimings = estimateWordTimings(segment.text, segment.start, segment.duration);
+                            const activeWordIdx = wordTimings.findIndex(
+                              w => currentTime >= w.start && currentTime < w.end
+                            );
+                            return wordTimings.map((wt, wi) => (
+                              <span
+                                key={wi}
+                                className={cn(
+                                  wi === activeWordIdx && "font-semibold text-amber-600 dark:text-amber-400 underline underline-offset-2"
+                                )}
+                              >
+                                {wi > 0 ? " " : ""}{wt.word}
+                              </span>
+                            ));
+                          })()
                         ) : (
                           segment.text
                         )}
