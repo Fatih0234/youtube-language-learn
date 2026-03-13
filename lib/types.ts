@@ -141,7 +141,7 @@ export interface VideoInfo {
 }
 
 // Playback command types for centralized control
-export type PlaybackCommandType = 'SEEK' | 'PLAY_TOPIC' | 'PLAY_SEGMENT' | 'PLAY' | 'PAUSE' | 'PLAY_ALL' | 'PLAY_CITATIONS';
+export type PlaybackCommandType = 'SEEK' | 'PLAY_TOPIC' | 'PLAY_SEGMENT' | 'PLAY' | 'PAUSE' | 'PLAY_ALL' | 'PLAY_CITATIONS' | 'SEEK_AND_PAUSE' | 'PLAY_WINDOW';
 
 export interface PlaybackCommand {
   type: PlaybackCommandType;
@@ -150,6 +150,8 @@ export interface PlaybackCommand {
   segment?: TranscriptSegment;
   citations?: Citation[];
   autoPlay?: boolean;
+  windowEnd?: number;
+  fallbackDuration?: number;
 }
 
 // Translation state for client-side management

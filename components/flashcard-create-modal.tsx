@@ -13,6 +13,7 @@ export interface FlashcardCreatePayload {
   videoId: string;
   selectedText: string;
   startTimestamp?: number;
+  endTimestamp?: number;
   transcriptContext?: string;
   sourceLanguage?: string;
 }
@@ -69,6 +70,7 @@ export function FlashcardCreateModal({
           videoId: payload.videoId,
           selectedText: payload.selectedText,
           startTimestamp: payload.startTimestamp,
+          endTimestamp: payload.endTimestamp,
           transcriptContext: payload.transcriptContext,
           sourceLanguage: payload.sourceLanguage,
           translation: translation || undefined,

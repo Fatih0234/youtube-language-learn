@@ -1,31 +1,45 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Flashcard } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Loader2, BookOpen, PlayCircle, Trash2 } from "lucide-react";
-import { fetchWithCSRF } from "@/lib/csrf-client";
+import { Loader2, BookOpen, PlayCircle, Trash2, AlertCircle } from "lucide-react";
+import { deleteFlashcard, fetchFlashcards } from "@/lib/flashcards-client";
 import { toast } from "sonner";
 import Link from "next/link";
 
 export default function MyFlashcardsPage() {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadFlashcards = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const cards = await fetchFlashcards({ all: true });
+      setFlashcards(cards);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error ? error.message : "Failed to load flashcards"
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetch("/api/flashcards?all=true")
-      .then((r) => r.json())
-      .then((data) => setFlashcards(data.flashcards || []))
-      .finally(() => setIsLoading(false));
-  }, []);
+    void loadFlashcards();
+  }, [loadFlashcards]);
 
   const handleDelete = async (id: string) => {
     try {
-      await fetchWithCSRF(`/api/flashcards/${id}`, { method: "DELETE" });
+      await deleteFlashcard(id);
       setFlashcards((prev) => prev.filter((c) => c.id !== id));
       toast.success("Card deleted");
-    } catch {
-      toast.error("Failed to delete card");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete card");
     }
   };
 
@@ -52,6 +66,15 @@ export default function MyFlashcardsPage() {
       {isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : loadError ? (
+        <div className="flex flex-col items-center py-16 gap-4 text-center">
+          <AlertCircle className="h-12 w-12 text-destructive" />
+          <div>
+            <p className="font-medium">Failed to load flashcards</p>
+            <p className="text-sm text-muted-foreground">{loadError}</p>
+          </div>
+          <Button variant="outline" onClick={loadFlashcards}>Retry</Button>
         </div>
       ) : flashcards.length === 0 ? (
         <div className="flex flex-col items-center py-16 gap-4 text-center">

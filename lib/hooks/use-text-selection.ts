@@ -3,6 +3,14 @@ import { useState, useEffect, useCallback } from 'react';
 export interface TextSelection {
   text: string;
   rect: DOMRect;
+  metadata?: {
+    transcript?: {
+      start?: number;
+      end?: number;
+      segmentIndex?: number;
+      context?: string;
+    };
+  };
 }
 
 export function useTextSelection(containerRef: React.RefObject<HTMLElement | null>) {
@@ -32,7 +40,19 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
 
     const range = sel.getRangeAt(0);
     const rect = range.getBoundingClientRect();
-    setSelection({ text: selectedText, rect });
+
+    // Extract transcript segment metadata from data attributes
+    let transcriptMeta: TextSelection['metadata'] = undefined;
+    const startEl = (range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement)?.closest('[data-segment-index]') as HTMLElement | null;
+    const endEl = (range.endContainer instanceof Element ? range.endContainer : range.endContainer.parentElement)?.closest('[data-segment-index]') as HTMLElement | null;
+    if (startEl) {
+      const start = startEl.dataset.segmentStart ? parseFloat(startEl.dataset.segmentStart) : undefined;
+      const end = endEl?.dataset.segmentEnd ? parseFloat(endEl.dataset.segmentEnd) : (startEl.dataset.segmentEnd ? parseFloat(startEl.dataset.segmentEnd) : undefined);
+      const context = startEl.textContent?.trim().slice(0, 200);
+      transcriptMeta = { transcript: { start, end, context } };
+    }
+
+    setSelection({ text: selectedText, rect, metadata: transcriptMeta });
   }, [containerRef]);
 
   const clearSelection = useCallback(() => {

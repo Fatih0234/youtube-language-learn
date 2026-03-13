@@ -7,6 +7,7 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint .",
+    "test": "node --import tsx --test tests/*.test.ts",
     "validate-env": "tsx scripts/validate-env.ts",
     "stripe:smoke": "node scripts/stripe-smoke.mjs",
     "stripe:setup-portal": "tsx scripts/setup-stripe-portal.ts",

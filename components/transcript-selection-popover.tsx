@@ -6,9 +6,16 @@ import { Button } from "@/components/ui/button";
 import { TextSelection } from "@/lib/hooks/use-text-selection";
 import { toast } from "sonner";
 
+export interface FlashcardSelectionPayload {
+  text: string;
+  startTimestamp?: number;
+  endTimestamp?: number;
+  transcriptContext?: string;
+}
+
 interface TranscriptSelectionPopoverProps {
   selection: TextSelection;
-  onAddFlashcard: (text: string) => void;
+  onAddFlashcard: (payload: FlashcardSelectionPayload) => void;
   onAskTutor: (text: string) => void;
   onClose: () => void;
 }
@@ -63,7 +70,15 @@ export function TranscriptSelectionPopover({
         variant="ghost"
         className="h-8 px-2 text-xs gap-1.5"
         onMouseDown={(e) => e.preventDefault()}
-        onClick={() => { onAddFlashcard(selection.text); onClose(); }}
+        onClick={() => {
+          onAddFlashcard({
+            text: selection.text,
+            startTimestamp: selection.metadata?.transcript?.start,
+            endTimestamp: selection.metadata?.transcript?.end,
+            transcriptContext: selection.metadata?.transcript?.context,
+          });
+          onClose();
+        }}
       >
         <BookOpen className="h-3.5 w-3.5" />
         Add Card

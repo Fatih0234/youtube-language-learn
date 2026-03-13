@@ -495,26 +495,6 @@ export default function AnalyzePage() {
     if (videoToLink && user) {
       console.log('Found video to link:', videoToLink);
 
-      // First, check if the video exists in the database
-      try {
-        // Construct YouTube URL from videoId for the cache check
-        const checkUrl = `https://www.youtube.com/watch?v=${videoToLink}`;
-        const checkResponse = await fetch('/api/check-video-cache', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: checkUrl })
-        });
-
-        if (!checkResponse.ok || !(await checkResponse.json()).cached) {
-          // Video doesn't exist yet, don't try to link
-          console.log('Video not yet in database, skipping link');
-          return;
-        }
-      } catch (error) {
-        console.error('Error checking video cache:', error);
-        return;
-      }
-
       try {
         const response = await fetch('/api/link-video', {
           method: 'POST',
@@ -1903,12 +1883,13 @@ export default function AnalyzePage() {
     setEditingNote(null);
   }, []);
 
-  const handleAddFlashcard = useCallback((text: string) => {
+  const handleAddFlashcard = useCallback((payload: { text: string; startTimestamp?: number; endTimestamp?: number; transcriptContext?: string }) => {
     setFlashcardPayload({
       videoId: videoId ?? '',
-      selectedText: text,
-      startTimestamp: currentTime,
-      transcriptContext: undefined,
+      selectedText: payload.text,
+      startTimestamp: payload.startTimestamp ?? currentTime,
+      endTimestamp: payload.endTimestamp,
+      transcriptContext: payload.transcriptContext,
       sourceLanguage: videoInfo?.language ?? undefined,
     });
     setFlashcardModalOpen(true);

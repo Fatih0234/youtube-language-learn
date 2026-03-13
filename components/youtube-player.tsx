@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Topic, TranscriptSegment, PlaybackCommand, TranslationRequestHandler } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { VideoProgressBar } from "@/components/video-progress-bar";
+import {
+  createYouTubePlayerController,
+  type YouTubePlayerController,
+} from "@/lib/youtube-player-controller";
 
 interface YouTubePlayerProps {
   videoId: string;
@@ -26,6 +30,7 @@ interface YouTubePlayerProps {
   onDurationChange?: (duration: number) => void;
   selectedLanguage?: string | null;
   onRequestTranslation?: TranslationRequestHandler;
+  controllerRef?: { current: YouTubePlayerController | null };
 }
 
 export function YouTubePlayer({
@@ -46,6 +51,7 @@ export function YouTubePlayer({
   onDurationChange,
   selectedLanguage = null,
   onRequestTranslation,
+  controllerRef,
 }: YouTubePlayerProps) {
   const playerRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -58,6 +64,34 @@ export function YouTubePlayer({
   const isPlayingAllRef = useRef(false);
   const playAllIndexRef = useRef(0);
   const topicsRef = useRef<Topic[]>([]);
+  const playWindowEndRef = useRef<number | null>(null);
+
+  const syncCurrentTime = useCallback((seconds: number) => {
+    setCurrentTime(seconds);
+    onTimeUpdate?.(seconds);
+  }, [onTimeUpdate]);
+
+  const playerController = useMemo(
+    () =>
+      createYouTubePlayerController({
+        playerRef,
+        playWindowEndRef,
+        onTimeUpdate: syncCurrentTime,
+      }),
+    [syncCurrentTime]
+  );
+
+  useEffect(() => {
+    if (!controllerRef) return;
+
+    controllerRef.current = playerController;
+
+    return () => {
+      if (controllerRef.current === playerController) {
+        controllerRef.current = null;
+      }
+    };
+  }, [controllerRef, playerController]);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -76,6 +110,7 @@ export function YouTubePlayer({
     setVideoDuration(0);
     setCurrentTime(0);
     onDurationChange?.(0);
+    playerController.clearWindowStop();
 
     if (!videoId) return;
 
@@ -151,6 +186,12 @@ export function YouTubePlayer({
                     }
                   }
 
+                  // Handle PLAY_WINDOW auto-pause
+                  if (playWindowEndRef.current !== null && time >= playWindowEndRef.current) {
+                    playerRef.current.pauseVideo();
+                    playWindowEndRef.current = null;
+                  }
+
                   // Throttle external updates to reduce re-renders (update every 100ms instead of 500ms)
                   const timeDiff = Math.abs(time - lastUpdateTime);
                   if (timeDiff >= 0.1) {
@@ -208,7 +249,7 @@ export function YouTubePlayer({
         timeUpdateIntervalRef.current = null;
       }
     };
-  }, [videoId, onDurationChange, onTimeUpdate, setIsPlayingAll, setPlayAllIndex, onPlayerReady]);
+  }, [videoId, onDurationChange, onTimeUpdate, setIsPlayingAll, setPlayAllIndex, onPlayerReady, playerController]);
 
   // Centralized command executor
   useEffect(() => {
@@ -218,8 +259,7 @@ export function YouTubePlayer({
       switch (playbackCommand.type) {
         case 'SEEK':
           if (playbackCommand.time !== undefined) {
-            playerRef.current.seekTo(playbackCommand.time, true);
-            playerRef.current.playVideo();
+            playerController.seek(playbackCommand.time);
           }
           break;
 
@@ -228,7 +268,9 @@ export function YouTubePlayer({
             const topic = playbackCommand.topic;
             onTopicSelect?.(topic);
             if (topic.segments.length > 0) {
+              playerController.clearWindowStop();
               playerRef.current.seekTo(topic.segments[0].start, true);
+              syncCurrentTime(topic.segments[0].start);
               if (playbackCommand.autoPlay) {
                 playerRef.current.playVideo();
               }
@@ -238,8 +280,7 @@ export function YouTubePlayer({
 
         case 'PLAY_SEGMENT':
           if (playbackCommand.segment) {
-            playerRef.current.seekTo(playbackCommand.segment.start, true);
-            playerRef.current.playVideo();
+            playerController.seek(playbackCommand.segment.start);
           }
           break;
 
@@ -264,7 +305,9 @@ export function YouTubePlayer({
               autoPlay: true,
             };
             onTopicSelect?.(citationReel);
+            playerController.clearWindowStop();
             playerRef.current.seekTo(playbackCommand.citations[0].start, true);
+            syncCurrentTime(playbackCommand.citations[0].start);
             if (playbackCommand.autoPlay) {
               playerRef.current.playVideo();
             }
@@ -276,10 +319,28 @@ export function YouTubePlayer({
             // Play All state is already set in requestPlayAll
             // Just select the first topic and start playing
             onTopicSelect?.(topics[0], true);  // Pass true for fromPlayAll
+            playerController.clearWindowStop();
             playerRef.current.seekTo(topics[0].segments[0].start, true);
+            syncCurrentTime(topics[0].segments[0].start);
             if (playbackCommand.autoPlay) {
               playerRef.current.playVideo();
             }
+          }
+          break;
+
+        case 'SEEK_AND_PAUSE':
+          if (playbackCommand.time !== undefined) {
+            playerController.seekAndPause(playbackCommand.time);
+          }
+          break;
+
+        case 'PLAY_WINDOW':
+          if (playbackCommand.time !== undefined) {
+            playerController.playWindow(
+              playbackCommand.time,
+              playbackCommand.windowEnd,
+              playbackCommand.fallbackDuration
+            );
           }
           break;
 
@@ -299,7 +360,7 @@ export function YouTubePlayer({
     // Execute with small delay to ensure player stability
     const timeoutId = setTimeout(executeCommand, 50);
     return () => clearTimeout(timeoutId);
-  }, [playbackCommand, playerReady, topics, onCommandExecuted, onTopicSelect, setIsPlayingAll, setPlayAllIndex]);
+  }, [playbackCommand, playerReady, topics, onCommandExecuted, onTopicSelect, setIsPlayingAll, setPlayAllIndex, playerController, syncCurrentTime]);
 
   // Reset segment index when topic changes and auto-play if needed
   useEffect(() => {
@@ -330,11 +391,13 @@ export function YouTubePlayer({
       if (playerRef.current?.seekTo && playerRef.current?.playVideo) {
         // Seek to the start of the topic's segment and play
         const segment = currentTopic.segments[0];
+        playerController.clearWindowStop();
         playerRef.current.seekTo(segment.start, true);
+        syncCurrentTime(segment.start);
         playerRef.current.playVideo();
       }
     }, 100);
-  }, [isPlayingAll, playAllIndex, playerReady, topics, onTopicSelect]);
+  }, [isPlayingAll, playAllIndex, playerReady, topics, onTopicSelect, playerController, syncCurrentTime]);
 
   // Monitor playback to handle citation reel transitions
   useEffect(() => {
@@ -394,15 +457,16 @@ export function YouTubePlayer({
 
     // Seek to the start of the single segment and play
     const segment = topic.segments[0];
-    playerRef.current.seekTo(segment.start, true);
-    playerRef.current.playVideo();
+    playerController.clearWindowStop();
+    playerController.seek(segment.start);
   };
 
 
 
   const handleSeek = (time: number) => {
+    playerController.clearWindowStop();
     playerRef.current?.seekTo(time, true);
-    setCurrentTime(time);
+    syncCurrentTime(time);
   };
 
 

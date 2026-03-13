@@ -54,16 +54,31 @@ async function handler(req: NextRequest) {
       .single();
 
     if (!profile) {
-      // Profile doesn't exist yet - can happen immediately after OAuth signup
-      console.log('User profile not ready yet:', user.id);
-      return NextResponse.json(
-        {
-          error: 'User profile not ready',
-          message: 'Your account is being set up. Please refresh the page in a moment.',
-          retryable: true
-        },
-        { status: 503 }
-      );
+      // Profile missing — trigger may have been skipped (e.g. OAuth race, legacy account).
+      // Create it on the fly so the user_videos FK insert can proceed.
+      console.log('User profile missing, creating on-the-fly:', user.id);
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          email: authUser?.email,
+          full_name: authUser?.user_metadata?.full_name ?? null,
+          avatar_url: authUser?.user_metadata?.avatar_url ?? null,
+        });
+
+      if (profileError && profileError.code !== '23505') {
+        // 23505 = unique_violation (profile was created concurrently — fine to ignore)
+        console.error('Failed to create missing profile:', profileError);
+        return NextResponse.json(
+          {
+            error: 'User profile could not be created',
+            message: 'Your account is being set up. Please refresh the page in a moment.',
+            retryable: true
+          },
+          { status: 503 }
+        );
+      }
     }
 
     // Check if video is already linked to user

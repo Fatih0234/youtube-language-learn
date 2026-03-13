@@ -11,19 +11,49 @@ import { CheckCircle2, RotateCcw } from "lucide-react";
 interface FlashcardReviewProps {
   flashcards: Flashcard[];
   onComplete?: () => void;
+  // Controlled mode — if provided, external state is used
+  currentIndex?: number;
+  isFlipped?: boolean;
+  onFlip?: () => void;
+  onRate?: (rating: "again" | "hard" | "easy") => void;
 }
 
-export function FlashcardReview({ flashcards, onComplete }: FlashcardReviewProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false);
+export function FlashcardReview({
+  flashcards,
+  onComplete,
+  currentIndex: controlledIndex,
+  isFlipped: controlledFlipped,
+  onFlip,
+  onRate: externalOnRate,
+}: FlashcardReviewProps) {
+  const isControlled = controlledIndex !== undefined;
+
+  const [internalIndex, setInternalIndex] = useState(0);
+  const [internalFlipped, setInternalFlipped] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const [ratings, setRatings] = useState<Record<string, string>>({});
 
+  const currentIndex = isControlled ? controlledIndex! : internalIndex;
+  const isFlipped = isControlled ? (controlledFlipped ?? false) : internalFlipped;
+
   const current = flashcards[currentIndex];
-  const progress = ((currentIndex) / flashcards.length) * 100;
+  const progress = (currentIndex / flashcards.length) * 100;
+
+  const handleFlip = () => {
+    if (onFlip) {
+      onFlip();
+    } else {
+      setInternalFlipped((f) => !f);
+    }
+  };
 
   const handleRate = async (rating: "again" | "hard" | "easy") => {
     if (!current) return;
+
+    if (externalOnRate) {
+      externalOnRate(rating);
+      return;
+    }
 
     setRatings((prev) => ({ ...prev, [current.id]: rating }));
 
@@ -37,11 +67,11 @@ export function FlashcardReview({ flashcards, onComplete }: FlashcardReviewProps
       // silent fail — rating UI still advances
     }
 
-    if (currentIndex + 1 >= flashcards.length) {
+    if (internalIndex + 1 >= flashcards.length) {
       setIsDone(true);
     } else {
-      setCurrentIndex((i) => i + 1);
-      setIsFlipped(false);
+      setInternalIndex((i) => i + 1);
+      setInternalFlipped(false);
     }
   };
 
@@ -53,7 +83,7 @@ export function FlashcardReview({ flashcards, onComplete }: FlashcardReviewProps
     );
   }
 
-  if (isDone) {
+  if (!isControlled && isDone) {
     const easyCount = Object.values(ratings).filter((r) => r === "easy").length;
     const hardCount = Object.values(ratings).filter((r) => r === "hard").length;
     const againCount = Object.values(ratings).filter((r) => r === "again").length;
@@ -95,7 +125,7 @@ export function FlashcardReview({ flashcards, onComplete }: FlashcardReviewProps
 
       <Card
         className="cursor-pointer min-h-48 flex items-center justify-center select-none"
-        onClick={() => setIsFlipped((f) => !f)}
+        onClick={handleFlip}
       >
         <CardContent className="p-8 text-center space-y-4">
           {!isFlipped ? (

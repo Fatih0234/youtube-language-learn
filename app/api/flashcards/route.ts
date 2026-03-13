@@ -103,5 +103,5 @@ async function handler(req: NextRequest) {
   return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
 }
 
-export const GET = withSecurity(handler, SECURITY_PRESETS.AUTHENTICATED);
+export const GET = withSecurity(handler, SECURITY_PRESETS.AUTHENTICATED_READ_ONLY);
 export const POST = withSecurity(handler, SECURITY_PRESETS.AUTHENTICATED);

@@ -857,6 +857,8 @@ export function TranscriptViewer({
                     <div
                       key={index}
                       data-segment-index={index}
+                      data-segment-start={segment.start}
+                      data-segment-end={segment.start + segment.duration}
                       ref={(el) => {
                         // Store refs properly
                         if (el) {
