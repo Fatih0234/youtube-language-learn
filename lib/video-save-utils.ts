@@ -126,6 +126,25 @@ export async function ensureUserVideoLink(
       return { linked: false, videoId: null, error: 'Video not found' };
     }
 
+    // Ensure user profile exists (user_videos.user_id FKs to profiles.id)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    if (!profile) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({ id: userId });
+
+      if (profileError && profileError.code !== '23505') {
+        // 23505 = unique_violation (profile created concurrently — fine to ignore)
+        console.error('[ensureUserVideoLink] Failed to create missing profile:', profileError);
+        return { linked: false, videoId: video.id, error: 'Profile creation failed' };
+      }
+    }
+
     // Check if link already exists
     const { data: existingLink } = await supabase
       .from('user_videos')

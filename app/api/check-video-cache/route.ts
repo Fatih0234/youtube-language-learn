@@ -4,6 +4,8 @@ import { extractVideoId } from '@/lib/utils';
 import { withSecurity, SECURITY_PRESETS } from '@/lib/security-middleware';
 import { ensureMergedFormat } from '@/lib/transcript-format-detector';
 import { TranscriptSegment } from '@/lib/types';
+import { ensureUserVideoLink } from '@/lib/video-save-utils';
+import { backgroundOperation } from '@/lib/promise-utils';
 
 async function handler(req: NextRequest) {
   try {
@@ -75,17 +77,12 @@ async function handler(req: NextRequest) {
           }
         }
       }
-      // If user is logged in, track their access to this video
+      // If user is logged in, track their access to this video (with profile creation fallback)
       if (user) {
-        await supabase
-          .from('user_videos')
-          .upsert({
-            user_id: user.id,
-            video_id: cachedVideo.id,
-            accessed_at: new Date().toISOString()
-          }, {
-            onConflict: 'user_id,video_id'
-          });
+        backgroundOperation(
+          'ensureUserVideoLink in check-video-cache',
+          () => ensureUserVideoLink(supabase, user.id, videoId)
+        );
       }
 
       // Ensure transcript is in merged format (backward compatibility for old cached videos)

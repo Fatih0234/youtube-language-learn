@@ -20,7 +20,8 @@ import { NO_CREDITS_USED_MESSAGE } from '@/lib/no-credits-message';
 import { ensureMergedFormat } from '@/lib/transcript-format-detector';
 import { TranscriptSegment } from '@/lib/types';
 import { getGuestAccessState, recordGuestUsage, setGuestCookies } from '@/lib/guest-usage';
-import { saveVideoAnalysisWithRetry } from '@/lib/video-save-utils';
+import { saveVideoAnalysisWithRetry, ensureUserVideoLink } from '@/lib/video-save-utils';
+import { backgroundOperation } from '@/lib/promise-utils';
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -323,6 +324,13 @@ async function handler(req: NextRequest) {
             `[video-analysis] Successfully saved cached video after ${saveResult.retriedCount} retries`
           );
         }
+
+        if (saveResult.success) {
+          backgroundOperation(
+            'ensureUserVideoLink after cached save',
+            () => ensureUserVideoLink(supabase, user.id, videoId)
+          );
+        }
       }
 
       const shouldConsumeCachedCredit = Boolean(
@@ -452,6 +460,31 @@ async function handler(req: NextRequest) {
       );
     }
 
+    // If save failed, attempt a fallback lookup so videoDbId can still be returned
+    // (the row may exist if a concurrent request saved it, or from a previous attempt)
+    let finalVideoDbId = saveResult.videoId;
+    if (!finalVideoDbId) {
+      const { data: existing } = await supabase
+        .from('video_analyses')
+        .select('id')
+        .eq('youtube_id', videoId)
+        .single();
+      finalVideoDbId = existing?.id ?? null;
+    }
+
+    if (saveResult.success && user?.id) {
+      backgroundOperation(
+        'ensureUserVideoLink after new save',
+        () => ensureUserVideoLink(supabase, user.id, videoId)
+      );
+    } else if (finalVideoDbId && user?.id) {
+      // Save failed but row exists — still link the user
+      backgroundOperation(
+        'ensureUserVideoLink fallback after save failure',
+        () => ensureUserVideoLink(supabase, user.id, videoId)
+      );
+    }
+
     // Only consume credit AFTER successful save
     if (
       saveResult.success &&
@@ -490,7 +523,7 @@ async function handler(req: NextRequest) {
       modelUsed,
       // Include the database UUID so the client can pass it directly to
       // notes/save endpoints, avoiding a youtube_id lookup that can fail.
-      videoDbId: saveResult.success ? saveResult.videoId : undefined
+      videoDbId: finalVideoDbId ?? undefined
     });
 
     if (!user && guestState) {
